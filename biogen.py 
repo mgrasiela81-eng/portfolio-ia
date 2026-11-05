@@ -1,0 +1,159 @@
+import json
+import random
+import urllib.request
+import urllib.parse
+
+class BioGenAIAdvancedLab:
+    def __init__(self):
+        self.humanos = {}
+        self.plantas = {}
+        self.plantas_em_observacao = set()
+        self._popular_dados_iniciais()
+
+    def gerar_dna(self, tamanho=150):
+        return "".join(random.choices(['A', 'T', 'C', 'G'], k=tamanho))
+
+    def _popular_dados_iniciais(self):
+        for i in range(1, 21):
+            self.humanos[f"HUMAN-REF-{i:03d}"] = self.gerar_dna()
+        for i in range(1, 51):
+            self.plantas[f"PLANT-REF-{i:03d}"] = self.gerar_dna()
+
+    def pesquisar_e_integrar_wikipedia(self, termo_pesquisa):
+        print(f"\n[IA Search] A consultar bases de dados globais para: '{termo_pesquisa}'...")
+        try:
+            url = f"https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(termo_pesquisa)}&format=json"
+            req = urllib.request.Request(url, headers={'User-Agent': 'BioGenAI-Lab/2.0'})
+            with urllib.request.urlopen(req, timeout=3) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                search_results = data.get('query', {}).get('search', [])
+                if search_results:
+                    titulo = search_results[0].get('title')
+                    print(f"[IA Search] Espécime validado na literatura: '{titulo}'")
+        except Exception as e:
+            print(f"[Aviso] Modo offline ativado ({e}). Integrando sinteticamente.")
+
+        novo_id = f"PLANT-WIKI-{termo_pesquisa.upper().replace(' ', '_')}"
+        self.plantas[novo_id] = self.gerar_dna(160)
+        print(f"[SUCESSO] Planta '{novo_id}' adicionada ao ecossistema do laboratório!")
+        return novo_id
+
+    def adicionar_amostra(self, tipo, sample_id, sequencia):
+        tipo = tipo.lower().strip()
+        seq_limpa = sequencia.upper().strip()
+        if not seq_limpa:
+            print("[ERRO] A sequência de DNA não pode estar vazia.")
+            return False
+
+        if tipo == "humano":
+            self.humanos[sample_id] = seq_limpa
+            print(f"[SUCESSO] Genoma humano '{sample_id}' registado.")
+            return True
+        elif tipo == "planta":
+            self.plantas[sample_id] = seq_limpa
+            print(f"[SUCESSO] Genoma vegetal '{sample_id}' registado.")
+            return True
+        else:
+            print("[ERRO] Tipo inválido. Use 'humano' ou 'planta'.")
+            return False
+
+    def alternar_observacao(self, plant_id):
+        if plant_id in self.plantas:
+            if plant_id in self.plantas_em_observacao:
+                self.plantas_em_observacao.remove(plant_id)
+                print(f"[*] Planta '{plant_id}' removida do painel de observação.")
+            else:
+                self.plantas_em_observacao.add(plant_id)
+                print(f"[👁️] Planta '{plant_id}' colocada SOB OBSERVAÇÃO CRÍTICA!")
+            return True
+        else:
+            print(f"[ERRO] ID de planta '{plant_id}' não encontrado.")
+            return False
+
+    def calcular_homologia(self, seq1, seq2):
+        min_len = min(len(seq1), len(seq2))
+        if min_len == 0:
+            return 0.0
+        matches = sum(1 for i in range(min_len) if seq1[i] == seq2[i])
+        return round((matches / min_len) * 100, 2)
+
+    def executar_analise_cruzada(self, id_humano):
+        if id_humano not in self.humanos:
+            print(f"[ERRO] Genoma humano '{id_humano}' não encontrado.")
+            return
+
+        seq_humano = self.humanos[id_humano]
+        resultados = []
+
+        for p_id, p_seq in self.plantas.items():
+            homologia = self.calcular_homologia(seq_humano, p_seq)
+            resultados.append({
+                "plant_id": p_id,
+                "painel_laboratorial": "EM OBSERVACAO CRITICA" if p_id in self.plantas_em_observacao else "MONITORIZACAO NORMAL",
+                "homology_index": f"{homologia}%"
+            })
+
+        resultados.sort(key=lambda x: float(x["homology_index"].replace("%", "")), reverse=True)
+
+        relatorio = {
+            "alvo_humano": id_humano,
+            "total_humanos_base": len(self.humanos),
+            "total_plantas_base": len(self.plantas),
+            "plantas_sob_observacao_ativa": list(self.plantas_em_observacao),
+            "top_homologias_cruzadas": resultados[:5]
+        }
+
+        print("\n==================================================")
+        print("      RELATÓRIO TÉCNICO: BIO-GEN LAB SYSTEM       ")
+        print("==================================================")
+        print(json.dumps(relatorio, indent=4))
+        print("==================================================")
+
+def menu():
+    lab = BioGenAIAdvancedLab()
+    while True:
+        print("\n==================================================")
+        print(" 🧬 BioGen AI - Plataforma de Genómica & Laboratório")
+        print("==================================================")
+        print(f" [Status] Humanos: {len(lab.humanos)} | Plantas: {len(lab.plantas)} | Em Observação: {len(lab.plantas_em_observacao)}")
+        print("--------------------------------------------------")
+        print("1. Executar Análise Cruzada (Humano vs Plantas)")
+        print("2. Pesquisar e Integrar Planta via IA / Wikipedia")
+        print("3. Adicionar Manualmente Novo Genoma Humano")
+        print("4. Adicionar Manualmente Novo Genoma Vegetal")
+        print("5. Colocar / Retirar Planta de Observação Crítica")
+        print("0. Sair")
+        print("==================================================")
+        
+        op = input("Escolha a operação de laboratório: ").strip()
+        
+        if op == "1":
+            h_id = input("ID do genoma humano alvo (ex: HUMAN-REF-001): ").strip()
+            lab.executar_analise_cruzada(h_id)
+            input("\nPressione Enter para continuar...")
+        elif op == "2":
+            termo = input("Digite o nome da planta para a IA pesquisar (ex: 'Arabidopsis thaliana'): ").strip()
+            lab.pesquisar_e_integrar_wikipedia(termo)
+            input("\nPressione Enter para continuar...")
+        elif op == "3":
+            h_id = input("ID do humano (ex: HUMAN-CUSTOM-01): ").strip()
+            h_seq = input("Sequência DNA (A, T, C, G): ").strip()
+            lab.adicionar_amostra("humano", h_id, h_seq)
+            input("\nPressione Enter para continuar...")
+        elif op == "4":
+            p_id = input("ID da planta (ex: PLANT-CUSTOM-01): ").strip()
+            p_seq = input("Sequência DNA (A, T, C, G): ").strip()
+            lab.adicionar_amostra("planta", p_id, p_seq)
+            input("\nPressione Enter para continuar...")
+        elif op == "5":
+            p_id = input("ID da planta a monitorizar/observar: ").strip()
+            lab.alternar_observacao(p_id)
+            input("\nPressione Enter para continuar...")
+        elif op == "0":
+            break
+        else:
+            print("[ERRO] Opção inválida.")
+
+if __name__ == "__main__":
+    menu()
+
